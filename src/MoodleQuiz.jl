@@ -5,7 +5,7 @@ using LightXML
 import Base.convert
 import Base.print
 import Base.show
-import Base.Random: uuid1, UUID
+import UUIDs: uuid1, UUID
 
 export QuestionType, Question, Answer, MoodleText, MoodleTextFormat, Quiz, TrueFalseAnswer, exportXML, @M_str, @M_mstr
 export MultipleChoice, TrueFalse, ShortAnswer, Matching, EmbeddedAnswers, Essay, Numerical, Description, CalculatedSimple, DragAndDrop, DragAndDropMatch, AllOrNothingMultipleChoice, Stack
@@ -142,7 +142,7 @@ function convert(::Type{AbstractString}, x::StackAnswerTest)
   )[x]
 end
 
-type MoodleFile
+struct MoodleFile
   Name::AbstractString
   Path::AbstractString
   Data::Vector{UInt8}
@@ -186,7 +186,7 @@ EmbedFile(mf::MoodleFile;width="100%",height="100%") =
 
 generates a text, which can be used for all text fields of a `Question` or `Answer`.
 """
-type MoodleText
+struct MoodleText
   Text::AbstractString
   Format::MoodleTextFormat
   Files::Vector{MoodleFile}
@@ -197,7 +197,7 @@ end
 convert(::Type{MoodleText},text::AbstractString) = MoodleText(text,HTML,[])
 
 @enum StackInputType AlgebraicInput CheckboxInput DropdownInput CharacterInput MatrixInput RadioButtonInput TextBoxInput UnitsInput TrueFalseInput
-type StackInput
+struct StackInput
   Type::StackInputType
   Name::AbstractString
   TrueAnswer::AbstractString
@@ -252,13 +252,13 @@ function EmbedInput(x::StackInput)
   return string("<p>[[input:", x.Name, "]] [[validation:", x.Name, "]]</p>")
 end
 
-type Answer
+struct Answer
   Fraction::Int
   Text::MoodleText
   Feedback::MoodleText
 end
 
-type PRTNode
+struct PRTNode
   Tree::Any
   Name::AbstractString
   AnswerTest::StackAnswerTest
@@ -266,8 +266,8 @@ type PRTNode
   Answer::AbstractString
   TrueScore::Float32
   FalseScore::Float32
-  TrueNextNode::Nullable{PRTNode}
-  FalseNextNode::Nullable{PRTNode}
+  TrueNextNode::Union{PRTNode, Nothing}
+  FalseNextNode::Union{PRTNode, Nothing}
   TrueFeedback::MoodleText
   FalseFeedback::MoodleText
 end
@@ -283,18 +283,18 @@ Constructor for a Potential Response Tree Node, used by stack questions
 * `AnswerTest::StackAnswerTest=AlgebraicEquivalence`    : The method of comparing the Input against the correct Answer
 * `TrueScore::Float32=1.0`                              : The question score if this node evaluates to `true`
 * `FalseScore::Float32=0.0`                             : The question score if this node evaluates to `frue`
-* `TrueNextNode::Nullable{PRTNode}=NULL`                : The next node if this node evaluates to `true`, null if the tree should terminate
-* `FalseNextNode::Nullable{PRTNode}=NULL`               : The next node if this node evaluates to `false`, null if the tree should terminate
+* `TrueNextNode::Union{PRTNode, Nothing}=nothing`       : The next node if this node evaluates to `true`, nothing if the tree should terminate
+* `FalseNextNode::Union{PRTNode, Nothing}=nothing`      : The next node if this node evaluates to `false`, nothing if the tree should terminate
 * `TrueFeedback::MoodleText=""`                         : Additional Feedback if this node evaluates to `true`
 * `FalseFeedback::MoodleText=""`                        : Additional Feedback if this node evaluates to `false`
 """
-function PRTNode(Tree, EvaluatedInput, Answer; Name="", AnswerTest=AlgebraicEquivalence, TrueScore=1.0, FalseScore=0.0, TrueNextNode=Nullable{PRTNode}(), FalseNextNode=Nullable{PRTNode}(), TrueFeedback=MoodleText(""), FalseFeedback=MoodleText(""))
+function PRTNode(Tree, EvaluatedInput, Answer; Name="", AnswerTest=AlgebraicEquivalence, TrueScore=1.0, FalseScore=0.0, TrueNextNode=nothing, FalseNextNode=nothing, TrueFeedback=MoodleText(""), FalseFeedback=MoodleText(""))
   this = PRTNode(Tree, Name, AnswerTest, EvaluatedInput, Answer, TrueScore, FalseScore, TrueNextNode, FalseNextNode, TrueFeedback, FalseFeedback)
   push!(Tree.Nodes, this)
   return this
 end
 
-type PRTree
+struct PRTree
   Nodes::Vector{PRTNode}
   Name::AbstractString
   Value::Float32
@@ -318,7 +318,7 @@ function PRTree(;Nodes=[], Name="prt1", Value=1.0, AutoSimplify=1)
 end
 
 
-type Question
+struct Question
   Qtype::QuestionType
   Name::MoodleText
   Text::MoodleText
@@ -334,7 +334,7 @@ type Question
   AnswerNumbering::AbstractString
   Answers::Vector{Answer}
   Inputs::Vector{StackInput}
-  ProblemResponseTree::Nullable{PRTree}
+  ProblemResponseTree::Union{PRTree, Nothing}
 end
 
 """
@@ -356,7 +356,7 @@ Contstructor for Question type using named parameters
 * `AnswerNumbering::String`="none" : decides how answers of questions should be labeled, e.g. 1. 2. ... or a),b) ... Labels are disabled by default.
 * `Answers::Answer=[]`             : `Answer`s for this question
 """
-function Question(qtype::QuestionType; Name="", Text="",GeneralFeedback="",CorrectFeedback="Die Antwort ist richtig.",PartiallyCorrectFeedback="Die Antwort ist teilweise richtig.", IncorrectFeedback="Die Antwort ist falsch.",Penalty=1/3,DefaultGrade=1,Hidden=0,Single=true,ShuffleAnswers=true,AnswerNumbering="none",Answers=[],Inputs=[], ProblemResponseTree=Nullable{PRTree}())
+function Question(qtype::QuestionType; Name="", Text="",GeneralFeedback="",CorrectFeedback="Die Antwort ist richtig.",PartiallyCorrectFeedback="Die Antwort ist teilweise richtig.", IncorrectFeedback="Die Antwort ist falsch.",Penalty=1/3,DefaultGrade=1,Hidden=0,Single=true,ShuffleAnswers=true,AnswerNumbering="none",Answers=[],Inputs=[], ProblemResponseTree=nothing)
   return Question(qtype,Name,Text,GeneralFeedback,CorrectFeedback,PartiallyCorrectFeedback,IncorrectFeedback,Penalty,DefaultGrade,Hidden,Single,ShuffleAnswers,AnswerNumbering,Answers,Inputs,ProblemResponseTree)
 end
 
@@ -386,7 +386,7 @@ function TrueFalseAnswer(TrueFeedback="",FalseFeedback="",TrueIsCorrect=1)
     ];
 end
 
-type EmbeddedAnswerOption
+struct EmbeddedAnswerOption
   Text::AbstractString
   Fraction::Int
   Feedback::AbstractString
@@ -405,7 +405,7 @@ function EmbeddedAnswerOption(Text;Correct=1,Fraction=100,Feedback="")
     return EmbeddedAnswerOption(Text,Correct*Fraction,Feedback);
 end
 
-type EmbeddedAnswer
+struct EmbeddedAnswer
     Type::EmbeddedAnswerType
     Grade::Int
     AnswerOptions::Vector{EmbeddedAnswerOption}
@@ -479,7 +479,7 @@ function NumericalEmbeddedAnswer(Value;Grade=1,Tolerance=0.1,Feedback="",InputSi
       if isnan(val)
 	   push!(answers,EmbeddedAnswerOption("nan";Feedback=Feedback));
      else
-		  push!(answers,EmbeddedAnswerOption(( (val<0)?"-":"" )*"Inf";Feedback=Feedback));
+		  push!(answers,EmbeddedAnswerOption(( (val<0) ? "-" : "" )*"Inf";Feedback=Feedback));
       # Note: Moodle changes box size to longest answer, which might be revealing - so in case longer answers are allowed, one must adapt the dummy numerical answer,
       # which makes "all" boxes in a matrix unpleasently bigger...
 		  #push!(answers,EmbeddedAnswerOption(( (val<0)?"-":"" )*"unendlich";Feedback=Feedback));
@@ -517,7 +517,7 @@ function TrueFalseEmbeddedAnswer(Value::Bool; Grade=1,Feedback="",AnsNames=["Tru
   return EmbeddedAnswer(MultipleChoiceHorizontal,Grade,answers);
 end
 
-type MatrixEmbeddedAnswer
+struct MatrixEmbeddedAnswer
     A::AbstractMatrix
     Grade::Int
     Tolerance::Float64
@@ -596,7 +596,7 @@ show(io::IO,mea::MatrixEmbeddedAnswer) = print(io,convert(AbstractString,mea))
 
 Creates a `Quiz` consisting of the supplied `Question`s with the given category.
 """
-type Quiz
+struct Quiz
   Questions::Vector{Question}
   Category::AbstractString
 end
@@ -688,7 +688,7 @@ function appendXML(q::Question,node,doc)
     for i in q.Inputs
       appendXML(i, question, doc)
     end
-    if !isnull(q.ProblemResponseTree)
+    if q.ProblemResponseTree !== nothing
       appendXML(MoodleText(
         "[[feedback:$(q.ProblemResponseTree.value.Name)]]"), question, "specificfeedback", doc) 
       appendXML(q.ProblemResponseTree.value, question, doc)
@@ -786,7 +786,7 @@ function appendXML(prtnode::PRTNode, node, doc)
   appendXML(0, xml, "quiet", doc)
   appendXML("=", xml, "truescoremode", doc)
   appendXML(prtnode.TrueScore, xml, "truescore", doc)
-  if isnull(prtnode.TrueNextNode)
+  if prtnode.TrueNextNode === nothing
     appendXML(-1, xml, "truenextnode", doc)
     appendXML(string(prtnode.Tree.Name, "-1-T"), xml, "trueanswernote", doc)
   else
@@ -797,7 +797,7 @@ function appendXML(prtnode::PRTNode, node, doc)
 
   appendXML("=", xml, "falsescoremode", doc)
   appendXML(prtnode.FalseScore, xml, "falsescore", doc)
-  if isnull(prtnode.FalseNextNode)
+  if prtnode.FalseNextNode === nothing
     appendXML(-1, xml, "falsenextnode", doc)
     appendXML(string(prtnode.Tree.Name, "-1-F"), xml, "falseanswernote", doc)
   else
