@@ -430,7 +430,7 @@ end
 rounds x according to the absolute tolerance AbsTol and returns the length of the resulting string
 """
 function roundedStringLength(x::Real,AbsTol::Real)
-  return round(x,AbsTol |> log10 |> ceil |> abs |> Int) |> string |> length
+    return round(x; digits=AbsTol |> log10 |> ceil |> abs |> Int) |> string |> length
 end
 
 """
@@ -461,7 +461,7 @@ function NumericalEmbeddedAnswer(Value;Grade=1,Tolerance=0.1,Feedback="",InputSi
 	  # so that its length is smaller than the size of the input field
 	  if val |> string |> length > InputSize
 		if roundedStringLength(val,Tolerance)  <=  InputSize
-		  val = round(val,Tolerance |> log10 |> ceil |> abs |> Int)
+		  val = round(val; digits=Tolerance |> log10 |> ceil |> abs |> Int)
 		end
 	  end
 	  push!(answers,EmbeddedAnswerOption(string(val,":",Tolerance);Feedback=Feedback))
